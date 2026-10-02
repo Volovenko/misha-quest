@@ -1,0 +1,550 @@
+<title>Миша: Прокачка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one phone-width game column, HUD on top, bottom tab bar; deliberate single dark "comic night city" look */
+:root {
+  --bg: #0e1124;
+  --panel: #171b35;
+  --panel-2: #1f2446;
+  --line: #2c3260;
+  --fg: #eef0ff;
+  --muted: #9ba1cc;
+  --red: #ff3d57;
+  --red-deep: #c4183a;
+  --yellow: #ffd23f;
+  --blue: #4a86ff;
+  --good: #3ad69e;
+  --bad: #ff7a7a;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(circle at 1px 1px, rgba(74,134,255,.10) 1px, transparent 1.4px) 0 0 / 14px 14px,
+    var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.45;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.app { max-width: 560px; margin: 0 auto; padding-inline: 16px; padding-block: 14px 110px; display: flex; flex-direction: column; gap: 16px; }
+
+.demo { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.role { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.role button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--muted); }
+.role button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+/* HUD */
+.hud { position: relative; background: linear-gradient(135deg, var(--red-deep), var(--red) 55%, #ff6b4a); border-radius: 22px; padding: 18px; overflow: hidden; box-shadow: 0 10px 0 -4px #000a; }
+.hud::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 2px 2px, rgba(0,0,0,.18) 1.2px, transparent 1.6px) 0 0 / 9px 9px; mask-image: linear-gradient(120deg, transparent 40%, #000); pointer-events: none; }
+.hud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; position: relative; z-index: 1; }
+.lvl-badge { font-family: var(--display); font-weight: 800; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
+.player { font-family: var(--display); font-weight: 800; font-size: 28px; line-height: 1.05; margin: 4px 0 0; text-wrap: balance; }
+.coins { display: flex; align-items: center; gap: 6px; background: #0007; padding: 6px 12px 6px 6px; border-radius: 999px; font-family: var(--mono); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.coin { width: 24px; height: 24px; flex: none; }
+.xp { position: relative; z-index: 1; margin-top: 16px; }
+.xp-row { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; margin-bottom: 6px; font-variant-numeric: tabular-nums; }
+.bar { height: 14px; background: #0006; border-radius: 999px; overflow: hidden; border: 2px solid #0004; }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--yellow), #fff3b0); border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.hud-stats { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.stat { background: #0005; border-radius: 12px; padding: 8px 10px; }
+.stat b { display: block; font-family: var(--mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; opacity: .85; }
+
+/* Sections */
+h2 { font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: .02em; margin: 6px 0 0; text-transform: uppercase; }
+.sub { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+
+.chest { display: flex; gap: 14px; align-items: center; background: var(--panel-2); border: 2px dashed var(--yellow); border-radius: 18px; padding: 14px; }
+.chest-ico { width: 54px; height: 54px; flex: none; }
+.chest-body { flex: 1; min-width: 0; }
+.chest-title { font-weight: 700; }
+.pips { display: flex; gap: 6px; margin-top: 8px; }
+.pip { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+.pip.on { background: var(--yellow); }
+
+.task { display: flex; gap: 12px; align-items: center; }
+.task-main { flex: 1; min-width: 0; }
+.task-title { font-weight: 500; }
+.task-meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.pts { font-family: var(--mono); font-weight: 700; color: var(--yellow); font-size: 13px; }
+.tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
+.btn { border: 0; border-radius: 12px; padding: 10px 14px; font-weight: 700; background: var(--fg); color: var(--bg); white-space: nowrap; transition: transform .1s; }
+.btn:active { transform: translateY(2px); }
+.btn.red { background: var(--red); color: #fff; box-shadow: 0 3px 0 var(--red-deep); }
+.btn.yellow { background: var(--yellow); color: #231a00; box-shadow: 0 3px 0 #b8930e; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--fg); }
+.btn.small { padding: 7px 11px; font-size: 13px; border-radius: 10px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.state { font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 10px; white-space: nowrap; }
+.state.wait { background: #4a86ff22; color: var(--blue); }
+.state.ok { background: #3ad69e22; color: var(--good); }
+.state.no { background: #ff7a7a22; color: var(--bad); }
+
+/* Focus */
+.focus { display: flex; align-items: center; gap: 16px; }
+.ring { width: 92px; height: 92px; flex: none; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .t { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+.focus-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Shop */
+.shop { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.item { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.item-ico { font-size: 30px; line-height: 1; }
+.item-title { font-weight: 500; flex: 1; }
+.item-cost { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-weight: 700; color: var(--yellow); }
+.item-cost .coin { width: 18px; height: 18px; }
+.item.locked .item-ico { filter: grayscale(1); opacity: .5; }
+.need { font-size: 11px; color: var(--muted); }
+
+/* Achievements */
+.ach { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.badge { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; }
+.badge .medal { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 20px; background: var(--panel-2); }
+.badge.on .medal { background: radial-gradient(circle at 35% 30%, #fff6c9, var(--yellow) 60%, #b8930e); box-shadow: 0 0 0 3px #ffd23f33; }
+.badge:not(.on) .medal { filter: grayscale(1); opacity: .45; }
+.badge b { display: block; font-size: 14px; }
+.badge span { font-size: 12px; color: var(--muted); display: block; }
+.badge em { font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--yellow); }
+
+/* Log */
+.log { display: flex; flex-direction: column; }
+.log-row { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.log-row:last-child { border-bottom: 0; }
+.log-row .d { font-family: var(--mono); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plus { color: var(--good); } .minus { color: var(--bad); }
+.when { color: var(--muted); font-size: 11px; }
+
+/* Parent */
+.pending { display: flex; gap: 12px; align-items: flex-start; }
+.pending img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; flex: none; }
+.form { display: flex; flex-direction: column; gap: 8px; }
+.form input, .form textarea { background: var(--bg); border: 1px solid var(--line); color: var(--fg); border-radius: 10px; padding: 10px 12px; font: inherit; width: 100%; }
+.form-row { display: grid; grid-template-columns: 1fr 96px; gap: 8px; }
+.empty { color: var(--muted); font-size: 13px; text-align: center; padding: 18px 8px; }
+
+/* Sheet (submit dialog) */
+.sheet-bg { position: fixed; inset: 0; background: #000a; display: flex; align-items: flex-end; justify-content: center; z-index: 30; }
+.sheet { background: var(--panel); border-top: 3px solid var(--red); border-radius: 22px 22px 0 0; width: 100%; max-width: 560px; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; }
+.sheet h3 { font-family: var(--display); font-size: 17px; margin: 0; }
+.photo-pick { display: flex; align-items: center; gap: 10px; }
+.photo-pick img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; }
+
+/* Tabs */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: #0e1124f2; border-top: 1px solid var(--line); padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); backdrop-filter: blur(8px); }
+.tabs-in { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.tab { background: none; border: 0; border-radius: 12px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 500; color: var(--muted); position: relative; }
+.tab svg { width: 22px; height: 22px; }
+.tab[aria-selected="true"] { color: var(--fg); background: var(--panel); }
+.tab[aria-selected="true"] svg { color: var(--red); }
+.dot { position: absolute; top: 4px; right: calc(50% - 20px); min-width: 16px; height: 16px; border-radius: 8px; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; padding: 0 4px; }
+
+/* Toasts & level up */
+.toasts { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 50; display: flex; flex-direction: column; gap: 8px; width: min(92vw, 420px); pointer-events: none; }
+.toast { background: var(--fg); color: var(--bg); border-radius: 14px; padding: 10px 14px; font-weight: 500; box-shadow: 0 8px 24px #0008; animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
+.toast b { font-family: var(--mono); }
+.lvlup { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: #000c; padding: 24px; }
+.lvlup-card { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
+.lvlup-card .big { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 11vw, 56px); line-height: 1; color: var(--yellow); text-shadow: 4px 4px 0 var(--red-deep); text-wrap: balance; }
+.lvlup-card p { margin: 0; color: var(--fg); font-size: 17px; }
+@keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+@media (max-width: 380px) { .shop, .ach { grid-template-columns: 1fr; } .player { font-size: 24px; } }
+</style>
+
+<div class="app" id="app"></div>
+<nav class="tabs" aria-label="Разделы"><div class="tabs-in" role="tablist" id="tabs"></div></nav>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="layer"></div>
+
+<script>
+(() => {
+const KEY = "misha-quest-v1";
+const COIN = '<svg class="coin" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#ffd23f" stroke="#b8930e" stroke-width="2"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#b8930e" stroke-width="1.6"/><path d="M12 8.5v7M9.5 12h5" stroke="#b8930e" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const ICONS = {
+  quests: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
+  shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M12 8S10 3 7.5 3 5 6 7 8M12 8s2-5 4.5-5S19 6 17 8"/></svg>',
+  ach: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/></svg>',
+  parent: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>'
+};
+const LEVELS = [
+  [0, "Новичок"], [100, "Ученик"], [250, "Боец"], [450, "Стратег"], [700, "Мастер"],
+  [1000, "Профи"], [1400, "Чемпион"], [1900, "Герой"], [2500, "Легенда"], [3300, "Легенда II"], [4300, "Легенда III"]
+];
+const ACH = [
+  { id: "first",   ico: "🚀", t: "Первый шаг",          d: "Первое засчитанное задание", bonus: 10 },
+  { id: "streak3", ico: "🔥", t: "Разогрев",            d: "3 дня подряд",               bonus: 15 },
+  { id: "streak7", ico: "☄️", t: "Неделя огня",         d: "7 дней подряд",              bonus: 40 },
+  { id: "streak30",ico: "🌋", t: "Несгибаемый",         d: "30 дней подряд",             bonus: 150 },
+  { id: "focus5",  ico: "🎯", t: "Фокус-режим",         d: "5 фокус-раундов",            bonus: 20 },
+  { id: "focus25", ico: "🧠", t: "Мастер концентрации", d: "25 фокус-раундов",           bonus: 60 },
+  { id: "clean5",  ico: "😇", t: "Чистый лист",         d: "5 дней без замечаний",       bonus: 30 },
+  { id: "chest",   ico: "🗝️", t: "Открыл сундук",       d: "Челлендж недели выполнен",   bonus: 20 },
+  { id: "buy1",    ico: "🛒", t: "Первая покупка",      d: "Обменял баллы на награду",   bonus: 5 },
+  { id: "lvl5",    ico: "👑", t: "Мастер",              d: "Дойти до 5 уровня",          bonus: 50 }
+];
+const FOCUS_MIN = 15, FOCUS_PTS = 5, FOCUS_CAP = 4, CHEST_GOAL = 5, CHEST_PTS = 50;
+const FOCUS_TASK = { id: "focus", title: "Фокус-раунд 15 минут", pts: FOCUS_PTS, cat: "focus" };
+
+/* ---------- dates ---------- */
+const pad = n => String(n).padStart(2, "0");
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const addDays = (k, n) => { const [y, m, d] = k.split("-").map(Number); return dayKey(new Date(y, m - 1, d + n)); };
+const diffDays = (a, b) => { const p = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); }; return Math.round((p(b) - p(a)) / 864e5); };
+const weekStart = (k = dayKey()) => { const [y, m, d] = k.split("-").map(Number); const dt = new Date(y, m - 1, d); const wd = (dt.getDay() + 6) % 7; return addDays(k, -wd); };
+const fmtWhen = ts => { const d = new Date(ts); const k = dayKey(d); const t = dayKey(); const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`; return k === t ? `сегодня, ${time}` : k === addDays(t, -1) ? `вчера, ${time}` : `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`; };
+const uid = () => Math.random().toString(36).slice(2, 9);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; };
+
+/* ---------- state ---------- */
+function seed() {
+  const t = dayKey(), now = Date.now(), h = 36e5;
+  const tasks = [
+    { id: "math", title: "Математика: домашка", pts: 15, cat: "hw" },
+    { id: "rus",  title: "Русский: домашка",    pts: 15, cat: "hw" },
+    { id: "eng",  title: "Английский: домашка", pts: 15, cat: "hw" },
+    { id: "clean",title: "День без замечаний в школе", pts: 10, cat: "behav" },
+    { id: "read", title: "Прочитать 10 страниц", pts: 5, cat: "extra" },
+    { id: "home", title: "Помочь маме по дому",  pts: 5, cat: "extra" }
+  ];
+  const subs = [];
+  const add = (taskId, day, status, hoursAgo) => subs.push({ id: uid(), taskId, day, status, note: "", photo: "", ts: now - hoursAgo * h });
+  add("math", addDays(t, -3), "ok", 74); add("clean", addDays(t, -3), "ok", 73);
+  add("math", addDays(t, -2), "ok", 50); add("rus", addDays(t, -2), "ok", 49); add("clean", addDays(t, -2), "ok", 48);
+  add("math", addDays(t, -1), "ok", 26); add("eng", addDays(t, -1), "ok", 25); add("read", addDays(t, -1), "no", 24);
+  add("math", t, "ok", 3); add("rus", t, "wait", 1);
+  return {
+    demo: true,
+    name: "Миша",
+    coins: 95, xp: 380,
+    streak: { count: 4, last: t, shields: 1 },
+    focusDone: 3,
+    focus: null,
+    tasks,
+    subs,
+    shop: [
+      { id: "s1", ico: "📱", title: "+30 минут телефона", cost: 40 },
+      { id: "s2", ico: "🍕", title: "Выбираю пиццу или фильм на вечер", cost: 100 },
+      { id: "s3", ico: "💎", title: "100 робуксов", cost: 250 },
+      { id: "s4", ico: "🎬", title: "Пак эффектов для монтажа", cost: 300 },
+      { id: "s5", ico: "🗺️", title: "День с папой: куда захочу", cost: 350 },
+      { id: "s6", ico: "❓", title: "Секретная награда", cost: 600 }
+    ],
+    orders: [{ id: uid(), itemId: "s1", status: "wait", ts: now - 2 * h }],
+    ach: { first: now - 74 * h, streak3: now - 26 * h },
+    chestWeek: "",
+    log: [
+      { ts: now - 3 * h, text: "Математика: домашка", d: 15 },
+      { ts: now - 2 * h, text: "Куплено: +30 минут телефона", d: -40 },
+      { ts: now - 26 * h, text: "Достижение «Разогрев»", d: 15 },
+      { ts: now - 25 * h, text: "Английский: домашка", d: 15 },
+      { ts: now - 26 * h, text: "Математика: домашка", d: 15 }
+    ]
+  };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
+if (!S || !S.tasks) S = seed();
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+let ui = { tab: "quests", role: "kid" };
+try { const u = JSON.parse(localStorage.getItem(KEY + "-ui")); if (u) ui = { ...ui, ...u }; } catch (e) {}
+const saveUi = () => { try { localStorage.setItem(KEY + "-ui", JSON.stringify(ui)); } catch (e) {} };
+
+/* ---------- derived ---------- */
+const levelOf = xp => { let i = 0; while (i + 1 < LEVELS.length && xp >= LEVELS[i + 1][0]) i++; return i; };
+const taskById = id => id === "focus" ? FOCUS_TASK : S.tasks.find(t => t.id === id);
+const focusToday = () => S.subs.filter(s => s.taskId === "focus" && s.day === dayKey() && s.status !== "no");
+const itemById = id => S.shop.find(t => t.id === id);
+const todaySub = taskId => { const t = dayKey(); return S.subs.filter(s => s.taskId === taskId && s.day === t).sort((a, b) => b.ts - a.ts)[0]; };
+const okSubs = () => S.subs.filter(s => s.status === "ok");
+const hwDaysThisWeek = () => { const ws = weekStart(); return new Set(okSubs().filter(s => taskById(s.taskId)?.cat === "hw" && s.day >= ws).map(s => s.day)).size; };
+const cleanDays = () => new Set(okSubs().filter(s => taskById(s.taskId)?.cat === "behav").map(s => s.day)).size;
+const pendingCount = () => S.subs.filter(s => s.status === "wait").length + S.orders.filter(o => o.status === "wait").length;
+const streakAlive = () => S.streak.last && diffDays(S.streak.last, dayKey()) <= (S.streak.shields > 0 ? 2 : 1);
+
+/* ---------- effects ---------- */
+function toast(html) {
+  const el = document.createElement("div"); el.className = "toast"; el.innerHTML = html;
+  const box = document.getElementById("toasts"); box.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+function levelUp(i) {
+  const layer = document.getElementById("layer");
+  layer.innerHTML = `<div class="lvlup" role="dialog" aria-label="Новый уровень"><div class="lvlup-card">
+    <div class="lvl-badge" style="color:var(--muted)">Новый уровень</div>
+    <div class="big">${i + 1}. ${esc(LEVELS[i][1])}</div>
+    <p>Так держать. Дальше будет интереснее.</p>
+    <button class="btn yellow" id="lvlok">Погнали</button></div></div>`;
+  document.getElementById("lvlok").onclick = () => { layer.innerHTML = ""; };
+}
+function gain(n, text, { xp = true } = {}) {
+  const before = levelOf(S.xp);
+  S.coins += n; if (xp && n > 0) S.xp += n;
+  S.log.unshift({ ts: Date.now(), text, d: n }); S.log = S.log.slice(0, 60);
+  const after = levelOf(S.xp);
+  if (after > before) setTimeout(() => levelUp(after), 400);
+}
+function bumpStreak(day) {
+  const st = S.streak;
+  if (st.last === day) return;
+  if (st.last && day < st.last) return;
+  const gap = st.last ? diffDays(st.last, day) : 99;
+  if (gap === 1) st.count++;
+  else if (gap === 2 && st.shields > 0) { st.shields--; st.count++; toast("Щит сгорел, но серия спасена"); }
+  else st.count = 1;
+  st.last = day;
+  if (st.count % 7 === 0 && st.shields < 2) { st.shields++; toast("Получен щит серии: один пропуск не страшен"); }
+}
+function checkAch() {
+  const m = {
+    first: okSubs().length >= 1, streak3: S.streak.count >= 3, streak7: S.streak.count >= 7, streak30: S.streak.count >= 30,
+    focus5: S.focusDone >= 5, focus25: S.focusDone >= 25, clean5: cleanDays() >= 5,
+    chest: !!S.chestWeek, buy1: S.orders.some(o => o.status !== "no"), lvl5: levelOf(S.xp) >= 4
+  };
+  ACH.forEach(a => {
+    if (m[a.id] && !S.ach[a.id]) {
+      S.ach[a.id] = Date.now();
+      gain(a.bonus, `Достижение «${a.t}»`);
+      toast(`Достижение: <b>${esc(a.t)}</b> +${a.bonus}`);
+    }
+  });
+}
+function commit() { checkAch(); save(); render(); }
+
+/* ---------- actions ---------- */
+const A = {
+  role(r) { ui.role = r; if (r === "kid" && ui.tab === "parent") ui.tab = "quests"; if (r === "dad") ui.tab = "parent"; saveUi(); render(); },
+  tab(t) { ui.tab = t; saveUi(); render(); window.scrollTo({ top: 0 }); },
+  openSubmit(taskId) {
+    const t = taskById(taskId); let photo = "";
+    const layer = document.getElementById("layer");
+    layer.innerHTML = `<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-label="Сдать задание">
+      <h3>${esc(t.title)}</h3>
+      <div class="sub">${taskId === "focus" ? "Что успел за эти 15 минут? Сфоткай тетрадь или напиши, какие задания сделал." : "Сфоткай тетрадь или напиши, что сделал."} Папа или мама проверят и начислят <b class="pts">+${t.pts}</b>.</div>
+      <div class="form"><textarea id="note" rows="2" placeholder="${taskId === "focus" ? "Например: решил №145–148" : "Например: №145–150, всё решил"}"></textarea></div>
+      <div class="photo-pick"><label class="btn ghost small" for="ph">Прикрепить фото</label><input id="ph" type="file" accept="image/*" hidden><span id="phv" class="sub"></span></div>
+      <div class="row"><button class="btn red" id="send">Отправить на проверку</button><button class="btn ghost" id="cancel">Отмена</button></div>
+    </div></div>`;
+    document.getElementById("sbg").onclick = e => { if (e.target.id === "sbg") layer.innerHTML = ""; };
+    document.getElementById("cancel").onclick = () => layer.innerHTML = "";
+    document.getElementById("ph").onchange = e => {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { const img = new Image(); img.onload = () => {
+        const k = Math.min(1, 480 / Math.max(img.width, img.height)); const c = document.createElement("canvas");
+        c.width = img.width * k; c.height = img.height * k; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        photo = c.toDataURL("image/jpeg", .6); document.getElementById("phv").innerHTML = `<img src="${photo}" alt="Фото задания">`;
+      }; img.src = r.result; };
+      r.readAsDataURL(f);
+    };
+    document.getElementById("send").onclick = () => {
+      S.subs.push({ id: uid(), taskId, day: dayKey(), status: "wait", note: document.getElementById("note").value.trim(), photo, ts: Date.now() });
+      layer.innerHTML = ""; toast("Отправлено. Ждём проверку"); commit();
+    };
+  },
+  approve(id, ok) {
+    const s = S.subs.find(x => x.id === id); if (!s) return; const t = taskById(s.taskId);
+    s.status = ok ? "ok" : "no";
+    if (ok) { if (s.taskId === "focus") S.focusDone++; gain(t.pts, t.title); bumpStreak(s.day); toast(`Засчитано: ${esc(t.title)} <b>+${t.pts}</b>`); }
+    else toast("Не засчитано. Можно переделать и отправить снова");
+    s.photo = "";
+    commit();
+  },
+  buy(itemId) {
+    const it = itemById(itemId); if (S.coins < it.cost) return;
+    S.orders.push({ id: uid(), itemId, status: "wait", ts: Date.now() });
+    gain(-it.cost, `Куплено: ${it.title}`, { xp: false });
+    toast("Заявка ушла папе. Баллы списаны"); commit();
+  },
+  order(id, ok) {
+    const o = S.orders.find(x => x.id === id); if (!o) return; const it = itemById(o.itemId);
+    o.status = ok ? "ok" : "no";
+    if (!ok) { gain(it.cost, `Возврат: ${it.title}`, { xp: false }); toast("Заявка отклонена, баллы вернулись"); }
+    else toast("Награда выдана");
+    commit();
+  },
+  claimChest() {
+    if (S.chestWeek === weekStart() || hwDaysThisWeek() < CHEST_GOAL) return;
+    S.chestWeek = weekStart(); gain(CHEST_PTS, "Сундук недели"); toast(`Сундук открыт! <b>+${CHEST_PTS}</b>`); commit();
+  },
+  focusStart() { if (focusToday().length >= FOCUS_CAP) return; S.focus = { end: Date.now() + FOCUS_MIN * 6e4, paused: 0 }; save(); render(); },
+  focusPause() { const f = S.focus; if (!f) return; if (f.paused) { f.end = Date.now() + f.paused; f.paused = 0; } else { f.paused = Math.max(0, f.end - Date.now()); } save(); render(); },
+  focusStop() { S.focus = null; save(); render(); },
+  focusDone() { S.focus = null; save(); render(); toast("Время вышло. Покажи, что успел"); A.openSubmit("focus"); },
+  bonus() {
+    const n = parseInt(document.getElementById("bn").value, 10); const why = document.getElementById("bw").value.trim() || "Бонус от папы";
+    if (!n) return; gain(n, why, { xp: n > 0 }); toast(n > 0 ? `Бонус начислен <b>+${n}</b>` : `Списано <b>${n}</b>`); commit();
+  },
+  addTask() {
+    const title = document.getElementById("nt").value.trim(); const pts = parseInt(document.getElementById("np").value, 10) || 5;
+    if (!title) return; S.tasks.push({ id: uid(), title, pts, cat: "extra" }); toast("Задание добавлено"); commit();
+  },
+  addItem() {
+    const title = document.getElementById("ni").value.trim(); const cost = parseInt(document.getElementById("nc").value, 10) || 50;
+    if (!title) return; S.shop.push({ id: uid(), ico: "🎁", title, cost }); toast("Награда добавлена"); commit();
+  },
+  delTask(id) { S.tasks = S.tasks.filter(t => t.id !== id); commit(); },
+  delItem(id) { S.shop = S.shop.filter(t => t.id !== id); commit(); },
+  reset(kind) {
+    const btn = document.getElementById("rs-" + kind);
+    if (btn.dataset.armed !== "1") { btn.dataset.armed = "1"; btn.textContent = "Точно? Нажми ещё раз"; return; }
+    if (kind === "demo") S = seed();
+    else { const s = seed(); S = { ...s, demo: false, coins: 0, xp: 0, streak: { count: 0, last: "", shields: 0 }, focusDone: 0, subs: [], orders: [], ach: {}, log: [] }; }
+    ui.role = "kid"; ui.tab = "quests"; saveUi(); save(); render(); toast("Готово");
+  }
+};
+
+/* ---------- views ---------- */
+function hud() {
+  const li = levelOf(S.xp), [from, name] = LEVELS[li], to = LEVELS[li + 1]?.[0];
+  const pct = to ? Math.round((S.xp - from) / (to - from) * 100) : 100;
+  const st = streakAlive() ? S.streak.count : 0;
+  return `<section class="hud" aria-label="Профиль">
+    <div class="hud-top">
+      <div><div class="lvl-badge">Уровень ${li + 1} · ${esc(name)}</div><h1 class="player">${esc(S.name)}</h1></div>
+      <div class="coins" title="Баллы">${COIN}<span>${S.coins}</span></div>
+    </div>
+    <div class="xp"><div class="xp-row"><span>Опыт ${S.xp}${to ? " / " + to : ""}</span><span>${to ? `до «${esc(LEVELS[li + 1][1])}» ${to - S.xp}` : "максимум"}</span></div>
+      <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div></div>
+    <div class="hud-stats">
+      <div class="stat"><b>${st}</b><span>${plural(st, "день", "дня", "дней")} подряд</span></div>
+      <div class="stat"><b>${S.streak.shields}</b><span>${plural(S.streak.shields, "щит", "щита", "щитов")} серии</span></div>
+      <div class="stat"><b>${Object.keys(S.ach).length}/${ACH.length}</b><span>достижений</span></div>
+    </div></section>`;
+}
+function chest() {
+  const n = hwDaysThisWeek(), done = S.chestWeek === weekStart(), ready = n >= CHEST_GOAL && !done;
+  const pips = Array.from({ length: CHEST_GOAL }, (_, i) => `<span class="pip${i < n ? " on" : ""}"></span>`).join("");
+  return `<section class="chest" aria-label="Челлендж недели">
+    <svg class="chest-ico" viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="26" width="52" height="30" rx="4" fill="#8a4b1f"/><path d="M6 30c0-12 9-20 26-20s26 8 26 20z" fill="#a95d27"/><rect x="6" y="28" width="52" height="5" fill="#ffd23f"/><rect x="27" y="28" width="10" height="14" rx="2" fill="#ffd23f"/><circle cx="32" cy="36" r="2" fill="#5a2f10"/></svg>
+    <div class="chest-body"><div class="chest-title">Сундук недели: +${CHEST_PTS}</div>
+      <div class="sub">${done ? "Уже открыт. Новый сундук в понедельник" : `Сделай домашку в ${CHEST_GOAL} разных дней этой недели · ${n}/${CHEST_GOAL}`}</div>
+      <div class="pips">${pips}</div></div>
+    ${ready ? `<button class="btn yellow small" data-a="claimChest">Открыть</button>` : ""}
+  </section>`;
+}
+function focusCard() {
+  const f = S.focus; const total = FOCUS_MIN * 6e4;
+  const left = f ? (f.paused || Math.max(0, f.end - Date.now())) : total;
+  const mm = Math.floor(left / 6e4), ss = Math.floor(left % 6e4 / 1e3);
+  const C = 2 * Math.PI * 40, off = C * (left / total);
+  return `<section class="card focus" aria-label="Фокус-раунд">
+    <div class="ring"><svg viewBox="0 0 92 92"><circle cx="46" cy="46" r="40" fill="none" stroke="var(--line)" stroke-width="8"/><circle id="arc" cx="46" cy="46" r="40" fill="none" stroke="var(--red)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C - off}"/></svg><div class="t" id="clock">${pad(mm)}:${pad(ss)}</div></div>
+    <div class="focus-body"><div><b>Фокус-раунд</b> <span class="pts">+${FOCUS_PTS}</span><div class="sub">15 минут только уроки. В конце показываешь, что успел, и после проверки получаешь баллы. Сегодня ${focusToday().length}/${FOCUS_CAP}${focusToday().some(s => s.status === "wait") ? ", часть на проверке" : ""}.</div></div>
+      <div class="row">${!f ? (focusToday().length >= FOCUS_CAP ? `<span class="state ok">На сегодня всё</span>` : `<button class="btn red small" data-a="focusStart">Старт</button>`) :
+        `<button class="btn small" data-a="focusPause">${f.paused ? "Продолжить" : "Пауза"}</button><button class="btn ghost small" data-a="focusStop">Сбросить</button>`}</div></div>
+  </section>`;
+}
+function stateChip(s) {
+  if (!s) return "";
+  return s.status === "wait" ? `<span class="state wait">На проверке</span>` : s.status === "ok" ? `<span class="state ok">Засчитано</span>` : "";
+}
+function quests() {
+  const cats = { hw: "Уроки", behav: "Школа", extra: "Бонус" };
+  const rows = S.tasks.map(t => {
+    const s = todaySub(t.id); const locked = s && s.status !== "no";
+    return `<div class="card task"><div class="task-main"><div class="task-title">${esc(t.title)}</div>
+      <div class="task-meta"><span class="pts">+${t.pts}</span><span class="tag">${cats[t.cat] || "Бонус"}</span>${s?.status === "no" ? `<span style="color:var(--bad)">не засчитано, попробуй снова</span>` : ""}</div></div>
+      ${locked ? stateChip(s) : `<button class="btn red small" data-a="openSubmit" data-id="${t.id}">Сдать</button>`}</div>`;
+  }).join("");
+  return `${chest()}${focusCard()}
+    <div><h2>Задания на сегодня</h2><p class="sub">Сделал, отправил, получил баллы. Каждый день задания обновляются.</p></div>
+    <div class="stack">${rows}</div>
+    <div><h2>История</h2></div>
+    <div class="card log">${S.log.slice(0, 8).map(l => `<div class="log-row"><div>${esc(l.text)}<div class="when">${fmtWhen(l.ts)}</div></div><div class="d ${l.d >= 0 ? "plus" : "minus"}">${l.d >= 0 ? "+" : ""}${l.d}</div></div>`).join("") || `<div class="empty">Пока пусто. Сдай первое задание</div>`}</div>`;
+}
+function shop() {
+  const waiting = S.orders.filter(o => o.status === "wait");
+  return `<div><h2>Магазин наград</h2><p class="sub">Баллы списываются сразу. Папа подтверждает и выдаёт награду.</p></div>
+    ${waiting.length ? `<div class="stack">${waiting.map(o => `<div class="card task"><div class="task-main"><div class="task-title">${esc(itemById(o.itemId)?.title || "Награда")}</div><div class="task-meta">${fmtWhen(o.ts)}</div></div><span class="state wait">Ждёт папу</span></div>`).join("")}</div>` : ""}
+    <div class="shop">${S.shop.map(it => { const can = S.coins >= it.cost; return `<div class="item${can ? "" : " locked"}">
+      <div class="item-ico" aria-hidden="true">${it.ico}</div><div class="item-title">${esc(it.title)}</div>
+      <div class="item-cost">${COIN}${it.cost}</div>
+      ${can ? `<button class="btn yellow small" data-a="buy" data-id="${it.id}">Обменять</button>` : `<div class="need">Ещё ${it.cost - S.coins}</div>`}
+    </div>`; }).join("")}</div>`;
+}
+function achievements() {
+  return `<div><h2>Достижения</h2><p class="sub">За каждое дают бонусные баллы.</p></div>
+    <div class="ach">${ACH.map(a => { const on = S.ach[a.id]; return `<div class="badge${on ? " on" : ""}">
+      <div class="medal" aria-hidden="true">${a.ico}</div><div><b>${esc(a.t)}</b><span>${esc(a.d)}</span><em>${on ? "получено · " + fmtWhen(on) : "+" + a.bonus}</em></div></div>`; }).join("")}</div>`;
+}
+function parent() {
+  const subs = S.subs.filter(s => s.status === "wait"), ords = S.orders.filter(o => o.status === "wait");
+  return `<div><h2>Проверка</h2><p class="sub">Подтверди, что сделано. Баллы начислятся сразу.</p></div>
+    <div class="stack">${subs.map(s => { const t = taskById(s.taskId); return `<div class="card pending">
+      ${s.photo ? `<img src="${s.photo}" alt="Фото задания">` : ""}
+      <div class="task-main"><div class="task-title">${esc(t?.title || "Задание")} <span class="pts">+${t?.pts || 0}</span></div>
+        <div class="task-meta">${fmtWhen(s.ts)}${s.note ? " · " + esc(s.note) : ""}</div>
+        <div class="row" style="margin-top:8px"><button class="btn red small" data-a="approve" data-id="${s.id}" data-ok="1">Засчитать</button><button class="btn ghost small" data-a="approve" data-id="${s.id}" data-ok="0">Не засчитывать</button></div></div></div>`; }).join("")}
+    ${ords.map(o => { const it = itemById(o.itemId); return `<div class="card pending"><div class="item-ico" aria-hidden="true">${it?.ico || "🎁"}</div>
+      <div class="task-main"><div class="task-title">Хочет: ${esc(it?.title || "награду")}</div><div class="task-meta">${fmtWhen(o.ts)} · ${it?.cost || 0} баллов уже списано</div>
+        <div class="row" style="margin-top:8px"><button class="btn yellow small" data-a="order" data-id="${o.id}" data-ok="1">Выдать</button><button class="btn ghost small" data-a="order" data-id="${o.id}" data-ok="0">Отклонить и вернуть</button></div></div></div>`; }).join("")}
+    ${!subs.length && !ords.length ? `<div class="card empty">Всё проверено</div>` : ""}</div>
+
+    <div><h2>Бонус или штраф</h2><p class="sub">Хвалить чаще, чем штрафовать.</p></div>
+    <div class="card form"><div class="form-row"><input id="bw" placeholder="За что, например: сам сел за уроки"><input id="bn" type="number" value="10" aria-label="Баллы"></div>
+      <button class="btn red" data-a="bonus">Начислить</button></div>
+
+    <div><h2>Задания</h2></div>
+    <div class="card form">${S.tasks.map(t => `<div class="task"><div class="task-main">${esc(t.title)} <span class="pts">+${t.pts}</span></div><button class="btn ghost small" data-a="delTask" data-id="${t.id}">Убрать</button></div>`).join("")}
+      <div class="form-row"><input id="nt" placeholder="Новое задание"><input id="np" type="number" value="10" aria-label="Баллы"></div>
+      <button class="btn" data-a="addTask">Добавить задание</button></div>
+
+    <div><h2>Награды</h2></div>
+    <div class="card form">${S.shop.map(t => `<div class="task"><div class="task-main">${esc(t.title)} <span class="pts">${t.cost}</span></div><button class="btn ghost small" data-a="delItem" data-id="${t.id}">Убрать</button></div>`).join("")}
+      <div class="form-row"><input id="ni" placeholder="Новая награда"><input id="nc" type="number" value="100" aria-label="Цена"></div>
+      <button class="btn" data-a="addItem">Добавить награду</button></div>
+
+    <div><h2>Данные</h2><p class="sub">Сейчас всё хранится только на этом устройстве.</p></div>
+    <div class="row"><button class="btn ghost small" id="rs-demo" data-a="reset" data-id="demo">Вернуть демо</button><button class="btn ghost small" id="rs-clean" data-a="reset" data-id="clean">Начать с нуля</button></div>`;
+}
+
+function render() {
+  const pc = pendingCount();
+  document.getElementById("app").innerHTML = `
+    <div class="demo"><span>${S.demo ? "Прототип с примерными данными" : "Прототип"}</span>
+      <div class="role" role="group" aria-label="Режим"><button data-a="role" data-id="kid" aria-pressed="${ui.role === "kid"}">Миша</button><button data-a="role" data-id="dad" aria-pressed="${ui.role === "dad"}">Папа${pc ? ` · ${pc}` : ""}</button></div></div>
+    ${hud()}
+    ${ui.tab === "shop" ? shop() : ui.tab === "ach" ? achievements() : ui.tab === "parent" && ui.role === "dad" ? parent() : quests()}`;
+  const tabs = [["quests", "Задания"], ["shop", "Награды"], ["ach", "Ачивки"]];
+  if (ui.role === "dad") tabs.push(["parent", "Проверка"]);
+  const tb = document.getElementById("tabs");
+  tb.style.gridTemplateColumns = `repeat(${tabs.length}, 1fr)`;
+  tb.innerHTML = tabs.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${ui.tab === k}" data-a="tab" data-id="${k}">${ICONS[k === "ach" ? "ach" : k]}${l}${k === "parent" && pc ? `<span class="dot">${pc}</span>` : ""}</button>`).join("");
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const fn = A[b.dataset.a]; if (!fn) return;
+  const id = b.dataset.id, ok = b.dataset.ok;
+  ok !== undefined ? fn(id, ok === "1") : fn(id);
+});
+
+/* focus ticker */
+setInterval(() => {
+  const f = S.focus; if (!f || f.paused) return;
+  const left = f.end - Date.now();
+  if (left <= 0) { A.focusDone(); return; }
+  const clock = document.getElementById("clock"), arc = document.getElementById("arc");
+  if (clock) clock.textContent = `${pad(Math.floor(left / 6e4))}:${pad(Math.floor(left % 6e4 / 1e3))}`;
+  if (arc) { const C = 2 * Math.PI * 40; arc.setAttribute("stroke-dashoffset", C - C * (left / (FOCUS_MIN * 6e4))); }
+}, 500);
+
+render();
+})();
+</script>
